@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- ================================================================
+         SAMPLE: "Get Approval to Register Taxi Plate" E-Service workflow.
+         Demonstrates: form trigger -> assign employee -> human approval ->
+         (approved -> payment link) / (rejected -> dead end) /
+         (more info -> wait for resubmission -> loop back to approval).
+
+         KNOWN LIMITATION: the real service requires document uploads (taxi
+         operator contract, non-conviction certificate, vehicle registration,
+         salary certificate, etc.) — the Form Builder does not yet support file
+         upload fields, so this demo uses text fields as stand-ins where a real
+         deployment would need file uploads. Flagged, not silently glossed over.
+         ================================================================ -->
+
+    <record id="demo_eservice_workflow" model="baramej.flow.workflow">
+        <field name="name">Get Approval to Register Taxi Plate</field>
+        <field name="description">Ministry of Transport, Communications and IT — approval to register a
+taxi plate prior to completing registration with Royal Oman Police. Sample E-Service workflow
+demonstrating: portal-authenticated submission, employee assignment, human approval with
+approve/reject/request-info, applicant resubmission loop, and a payment step on approval.</field>
+        <field name="trigger_type">form</field>
+        <field name="state">draft</field>
+    </record>
+
+    <!-- Nodes -->
+    <record id="demo_es_node_trigger" model="baramej.flow.node">
+        <field name="workflow_id" ref="demo_eservice_workflow"/>
+        <field name="name">Application Submitted</field>
+        <field name="node_type">trigger_form</field>
+        <field name="sequence">10</field>
+        <field name="pos_x">40</field>
+        <field name="pos_y">160</field>
+    </record>
+
+    <record id="demo_es_node_assign" model="baramej.flow.node">
+        <field name="workflow_id" ref="demo_eservice_workflow"/>
+        <field name="name">Assign to Reviewer</field>
+        <field name="node_type">assign_employee</field>
+        <field name="sequence">20</field>
+        <field name="pos_x">280</field>
+        <field name="pos_y">160</field>
+        <!-- base.user_admin exists in every Odoo database, safe demo default.
+             %(xmlid)d substitution only works inside eval="" expressions, not as
+             literal text content, hence the eval attribute here rather than a
+             plain field value. -->
+        <field name="config_json" eval="'{&quot;user_id&quot;: %d, &quot;output_key&quot;: &quot;assigned_user_id&quot;}' % ref('base.user_admin')"/>
+    </record>
+
+    <record id="demo_es_node_approval" model="baramej.flow.node">
+        <field name="workflow_id" ref="demo_eservice_workflow"/>
+        <field name="name">Ministry Review</field>
+        <field name="node_type">human_approval</field>
+        <field name="sequence">30</field>
+        <field name="pos_x">520</field>
+        <field name="pos_y">160</field>
+        <field name="config_json">{"ticket_state_while_waiting": "in_review"}</field>
+    </record>
+
+    <record id="demo_es_node_payment" model="baramej.flow.node">
+        <field name="workflow_id" ref="demo_eservice_workflow"/>
+        <field name="name">Collect Approval Fee</field>
+        <field name="node_type">send_payment_link</field>
+        <field name="sequence">40</field>
+        <field name="pos_x">780</field>
+        <field name="pos_y">60</field>
+        <field name="config_json">{"amount": 25.0, "currency": "OMR", "description": "Taxi plate registration approval fee"}</field>
+        <field name="note">Requires the "payment" module with at least one provider configured to actually
+generate a working link — will raise a clear error otherwise, which is expected until a provider is set up.</field>
+    </record>
+
+    <record id="demo_es_node_wait_info" model="baramej.flow.node">
+        <field name="workflow_id" ref="demo_eservice_workflow"/>
+        <field name="name">Awaiting Applicant Response</field>
+        <field name="node_type">wait_for_resubmission</field>
+        <field name="sequence">50</field>
+        <field name="pos_x">520</field>
+        <field name="pos_y">320</field>
+    </record>
+
+    <!-- Edges -->
+    <record id="demo_es_edge_1" model="baramej.flow.edge">
+        <field name="workflow_id" ref="demo_eservice_workflow"/>
+        <field name="source_node_id" ref="demo_es_node_trigger"/>
+        <field name="target_node_id" ref="demo_es_node_assign"/>
+        <field name="condition_branch">default</field>
+    </record>
+    <record id="demo_es_edge_2" model="baramej.flow.edge">
+        <field name="workflow_id" ref="demo_eservice_workflow"/>
+        <field name="source_node_id" ref="demo_es_node_assign"/>
+        <field name="target_node_id" ref="demo_es_node_approval"/>
+        <field name="condition_branch">default</field>
+    </record>
+    <record id="demo_es_edge_approved" model="baramej.flow.edge">
+        <field name="workflow_id" ref="demo_eservice_workflow"/>
+        <field name="source_node_id" ref="demo_es_node_approval"/>
+        <field name="target_node_id" ref="demo_es_node_payment"/>
+        <field name="condition_branch">approved</field>
+    </record>
+    <!-- 'rejected' branch: deliberately no outgoing edge — action_reject() already
+         records the reason and sets ticket state, nothing further to automate -->
+    <record id="demo_es_edge_more_info" model="baramej.flow.edge">
+        <field name="workflow_id" ref="demo_eservice_workflow"/>
+        <field name="source_node_id" ref="demo_es_node_approval"/>
+        <field name="target_node_id" ref="demo_es_node_wait_info"/>
+        <field name="condition_branch">more_info</field>
+    </record>
+    <record id="demo_es_edge_loop_back" model="baramej.flow.edge">
+        <field name="workflow_id" ref="demo_eservice_workflow"/>
+        <field name="source_node_id" ref="demo_es_node_wait_info"/>
+        <field name="target_node_id" ref="demo_es_node_approval"/>
+        <field name="condition_branch">default</field>
+    </record>
+
+    <!-- The public-facing form -->
+    <record id="demo_eservice_form" model="baramej.flow.form">
+        <field name="name">Register Taxi Plate — Application</field>
+        <field name="workflow_id" ref="demo_eservice_workflow"/>
+        <field name="require_login">True</field>
+        <field name="is_published">False</field>
+        <field name="description">Apply for Ministry approval to register a taxi plate. You must be signed
+in to submit — this lets you track your application status and respond if more information is needed.</field>
+        <field name="submit_button_label">Submit Application</field>
+        <field name="thank_you_message">Your application has been submitted. You can track its status
+anytime under My Account &gt; My E-Services.</field>
+    </record>
+
+    <record id="demo_es_field_name" model="baramej.flow.form.field">
+        <field name="form_id" ref="demo_eservice_form"/>
+        <field name="sequence">10</field>
+        <field name="name">full_name</field>
+        <field name="label">Full Name</field>
+        <field name="field_type">char</field>
+        <field name="required">True</field>
+    </record>
+    <record id="demo_es_field_national_id" model="baramej.flow.form.field">
+        <field name="form_id" ref="demo_eservice_form"/>
+        <field name="sequence">20</field>
+        <field name="name">national_id</field>
+        <field name="label">Civil/National ID Number</field>
+        <field name="field_type">char</field>
+        <field name="required">True</field>
+    </record>
+    <record id="demo_es_field_age" model="baramej.flow.form.field">
+        <field name="form_id" ref="demo_eservice_form"/>
+        <field name="sequence">30</field>
+        <field name="name">age</field>
+        <field name="label">Age</field>
+        <field name="field_type">integer</field>
+        <field name="required">True</field>
+    </record>
+    <record id="demo_es_field_vehicle_status" model="baramej.flow.form.field">
+        <field name="form_id" ref="demo_eservice_form"/>
+        <field name="sequence">40</field>
+        <field name="name">vehicle_registration_status</field>
+        <field name="label">Vehicle Registration Status</field>
+        <field name="field_type">selection</field>
+        <field name="selection_options">Already Registered,Registration Pending (Dealership/Customs Card)</field>
+        <field name="required">True</field>
+    </record>
+    <record id="demo_es_field_vehicle_color" model="baramej.flow.form.field">
+        <field name="form_id" ref="demo_eservice_form"/>
+        <field name="sequence">50</field>
+        <field name="name">vehicle_color</field>
+        <field name="label">Vehicle Color</field>
+        <field name="field_type">selection</field>
+        <field name="selection_options">Orange and White,Other</field>
+        <field name="required">True</field>
+    </record>
+    <record id="demo_es_field_employment" model="baramej.flow.form.field">
+        <field name="form_id" ref="demo_eservice_form"/>
+        <field name="sequence">60</field>
+        <field name="name">employment_type</field>
+        <field name="label">Employment Type</field>
+        <field name="field_type">selection</field>
+        <field name="selection_options">Government Sector,Private Sector,Job Seeker</field>
+        <field name="required">True</field>
+    </record>
+    <record id="demo_es_field_income_ref" model="baramej.flow.form.field">
+        <field name="form_id" ref="demo_eservice_form"/>
+        <field name="sequence">70</field>
+        <field name="name">income_proof_reference</field>
+        <field name="label">Income Proof Reference (salary certificate / PASI statement / job-seeker proof number)</field>
+        <field name="field_type">char</field>
+        <field name="required">True</field>
+        <field name="placeholder">Document upload isn't supported yet — enter a reference number for now</field>
+    </record>
+
+</odoo>

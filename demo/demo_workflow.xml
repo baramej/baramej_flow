@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <record id="demo_workflow_create_contact" model="baramej.flow.workflow">
+        <field name="name">Demo: Create Contact on Trigger</field>
+        <field name="description">Illustrative Phase 1 workflow. A manual trigger flows into a
+Create Record action that creates a new Contact. Open this workflow and click "Run Test" to
+see it execute end-to-end, then check the Executions tab to inspect the per-node log.</field>
+        <field name="trigger_type">manual</field>
+        <field name="state">draft</field>
+    </record>
+
+    <record id="demo_node_trigger" model="baramej.flow.node">
+        <field name="workflow_id" ref="demo_workflow_create_contact"/>
+        <field name="name">Start</field>
+        <field name="node_type">trigger_manual</field>
+        <field name="sequence">10</field>
+        <field name="pos_x">40</field>
+        <field name="pos_y">120</field>
+    </record>
+
+    <record id="demo_node_create_contact" model="baramej.flow.node">
+        <field name="workflow_id" ref="demo_workflow_create_contact"/>
+        <field name="name">Create Demo Contact</field>
+        <field name="node_type">action_create_record</field>
+        <field name="sequence">20</field>
+        <field name="pos_x">320</field>
+        <field name="pos_y">120</field>
+        <field name="config_json">{"model": "res.partner", "values": {"name": "Baramej Flow Demo Contact", "comment": "Created automatically by the Baramej Flow demo workflow."}, "output_key": "created_partner_id"}</field>
+    </record>
+
+    <record id="demo_edge_1" model="baramej.flow.edge">
+        <field name="workflow_id" ref="demo_workflow_create_contact"/>
+        <field name="source_node_id" ref="demo_node_trigger"/>
+        <field name="target_node_id" ref="demo_node_create_contact"/>
+        <field name="condition_branch">default</field>
+    </record>
+
+</odoo>
