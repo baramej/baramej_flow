@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_flow_workflow_form" model="ir.ui.view">
+        <field name="name">baramej.flow.workflow.form</field>
+        <field name="model">baramej.flow.workflow</field>
+        <field name="arch" type="xml">
+            <form string="Workflow">
+                <header>
+                    <button name="action_publish" string="Publish" type="object"
+                            class="oe_highlight" invisible="state == 'published'"
+                            groups="baramej_flow.group_flow_manager"/>
+                    <button name="action_set_draft" string="Set to Draft" type="object"
+                            invisible="state != 'published'"
+                            groups="baramej_flow.group_flow_manager"/>
+                    <button name="action_run_test" string="Run Test" type="object"
+                            class="btn-secondary"/>
+                    <button name="action_open_canvas" string="Open Canvas" type="object"
+                            class="btn-secondary" icon="fa-project-diagram"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,published"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_executions" type="object" class="oe_stat_button" icon="fa-list-alt">
+                            <field name="execution_count" widget="statinfo" string="Executions"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Ticket Triage &amp; Classification"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="trigger_type"/>
+                            <field name="model_id" invisible="trigger_type != 'model_event'"
+                                   options="{'no_create': True}"/>
+                            <field name="trigger_on" invisible="trigger_type != 'model_event'"/>
+                        </group>
+                        <group>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="version" readonly="1"/>
+                        </group>
+                    </group>
+                    <field name="description" placeholder="What does this workflow do?"/>
+
+                    <group string="Webhook Trigger" invisible="trigger_type != 'webhook'">
+                        <field name="webhook_url" readonly="1"/>
+                        <label for="webhook_secret"/>
+                        <div>
+                            <field name="webhook_secret" readonly="1" class="oe_inline"/>
+                            <button name="action_regenerate_webhook_secret" type="object"
+                                    string="Regenerate" class="btn-link"
+                                    groups="baramej_flow.group_flow_manager"
+                                    confirm="This invalidates the current secret immediately. Any caller still using the old one will start failing signature checks. Continue?"/>
+                        </div>
+                        <div class="text-muted" colspan="2">
+                            Callers must POST JSON to the URL above with header
+                            <code>X-Flow-Signature: hex(HMAC-SHA256(body, secret))</code>.
+                        </div>
+                    </group>
+
+                    <group string="WhatsApp Trigger" invisible="trigger_type != 'whatsapp'">
+                        <field name="whatsapp_webhook_url" readonly="1"/>
+                        <field name="whatsapp_verify_token" readonly="1"/>
+                        <div class="text-muted" colspan="2">
+                            In Meta Developer Console → WhatsApp → Configuration, set the Callback URL to
+                            the webhook URL above and the Verify Token to the value shown here.
+                        </div>
+                    </group>
+
+                    <group string="Email Trigger" invisible="trigger_type != 'email'">
+                        <field name="email_alias_full" readonly="1" invisible="not email_alias_id"/>
+                        <button name="action_generate_email_alias" type="object"
+                                string="Generate Email Trigger Address" class="btn-secondary"
+                                invisible="email_alias_id"
+                                groups="baramej_flow.group_flow_manager"/>
+                    </group>
+
+                    <group string="Web Form Trigger" invisible="trigger_type != 'form'">
+                        <field name="form_ids" nolabel="1">
+                            <list>
+                                <field name="name"/>
+                                <field name="is_published"/>
+                                <field name="public_url"/>
+                            </list>
+                        </field>
+                        <div class="text-muted" colspan="2">
+                            Create a Web Form under Baramej Flow → Workflows → Web Forms, linked to this
+                            workflow, to get a public URL.
+                        </div>
+                    </group>
+
+                    <notebook>
+                        <page string="Nodes" name="nodes">
+                            <field name="node_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="node_type"/>
+                                    <field name="pos_x" optional="hide"/>
+                                    <field name="pos_y" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Connections" name="connections">
+                            <field name="edge_ids">
+                                <list editable="bottom">
+                                    <field name="source_node_id" domain="[('workflow_id', '=', parent.id)]"/>
+                                    <field name="condition_branch"/>
+                                    <field name="target_node_id" domain="[('workflow_id', '=', parent.id)]"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Executions" name="executions">
+                            <field name="execution_ids" readonly="1">
+                                <list>
+                                    <field name="create_date"/>
+                                    <field name="trigger_source"/>
+                                    <field name="state" widget="badge"
+                                           decoration-success="state == 'success'"
+                                           decoration-danger="state == 'failed'"
+                                           decoration-info="state == 'running'"/>
+                                    <field name="duration"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_flow_workflow_list" model="ir.ui.view">
+        <field name="name">baramej.flow.workflow.list</field>
+        <field name="model">baramej.flow.workflow</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="trigger_type"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'published'"
+                       decoration-muted="state == 'draft'"/>
+                <field name="execution_count"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+<!--    <record id="view_flow_workflow_search" model="ir.ui.view">-->
+<!--        <field name="name">baramej.flow.workflow.search</field>-->
+<!--        <field name="model">baramej.flow.workflow</field>-->
+<!--        <field name="arch" type="xml">-->
+<!--            <search>-->
+<!--                <field name="name"/>-->
+<!--                <field name="trigger_type"/>-->
+<!--                <filter string="Draft" name="filter_draft" domain="[('state', '=', 'draft')]"/>-->
+<!--                <filter string="Published" name="filter_published" domain="[('state', '=', 'published')]"/>-->
+<!--                <group expand="0" string="Group By">-->
+<!--                    <filter string="Trigger Type" name="group_trigger_type" context="{'group_by': 'trigger_type'}"/>-->
+<!--                    <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>-->
+<!--                </group>-->
+<!--            </search>-->
+<!--        </field>-->
+<!--    </record>-->
+
+    <record id="action_flow_workflow" model="ir.actions.act_window">
+        <field name="name">Workflows</field>
+        <field name="res_model">baramej.flow.workflow</field>
+        <field name="view_mode">list,form</field>
+<!--        <field name="search_view_id" ref="view_flow_workflow_search"/>-->
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first workflow
+            </p>
+            <p>
+                A workflow starts with a Trigger node and flows through Action and Condition
+                nodes. Add nodes on the Nodes tab, wire them together on the Connections tab,
+                then use "Run Test" to validate it end-to-end.
+            </p>
+        </field>
+    </record>
+
+</odoo>

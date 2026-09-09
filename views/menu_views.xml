@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_flow_root" name="Baramej Flow" sequence="60"/>
+
+    <menuitem id="menu_flow_workflows" name="Workflows" parent="menu_flow_root"
+              action="action_flow_workflow" sequence="10"/>
+
+    <menuitem id="menu_flow_forms" name="Web Forms" parent="menu_flow_root"
+              action="action_flow_form" sequence="15"/>
+
+    <menuitem id="menu_flow_tickets" name="E-Service Tickets" parent="menu_flow_root"
+              action="action_flow_ticket" sequence="17"/>
+
+    <menuitem id="menu_flow_executions" name="Executions" parent="menu_flow_root"
+              action="action_flow_execution" sequence="20"/>
+
+    <menuitem id="menu_flow_config" name="Configuration" parent="menu_flow_root" sequence="90"
+              groups="baramej_flow.group_flow_manager"/>
+
+    <menuitem id="menu_flow_nodes" name="Nodes (Advanced)" parent="menu_flow_config"
+              action="action_flow_node" sequence="10"/>
+
+    <menuitem id="menu_flow_edges" name="Connections (Advanced)" parent="menu_flow_config"
+              action="action_flow_edge" sequence="20"/>
+
+    <menuitem id="menu_flow_credentials" name="Credentials" parent="menu_flow_config"
+              action="action_flow_credential" sequence="30"/>
+
+</odoo>
